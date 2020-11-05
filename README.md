@@ -1,4 +1,4 @@
-# Insight Core Module
+# Agent Core Module
 Agent Core Module Python Version
 ## Introduction
 Agent is designed to be business driven data management tools
