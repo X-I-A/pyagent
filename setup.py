@@ -19,7 +19,7 @@ def get_version(rel_path):
 
 setuptools.setup(
     name="pyagent",
-    version=get_version("pyinsight/__init__.py"),
+    version=get_version("pyagent/__init__.py"),
     author="Soral",
     author_email="soral@x-i-a.com",
     description="Agent Core Module Python Version",
