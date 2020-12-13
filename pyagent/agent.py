@@ -76,6 +76,45 @@ class Agent():
         return data_type, header, tar_full_data
 
     @classmethod
+    def _age_list_add_item(cls, age_list: List[list], item: list) -> List[list]:
+        new_age_list, cur_item, start_point = list(), item.copy(), None
+        for list_item in age_list:
+            if start_point is None:
+                start_point = list_item[0]
+            # <List Item> --- <New Item>
+            if list_item[1] + 1 < cur_item[0]:
+                new_age_list.append(list_item)
+            # <New Item> --- <List Item>
+            elif cur_item[1] + 1 < list_item[0]:
+                new_age_list.append(cur_item)
+                cur_item = list_item.copy()
+            # <New Item && List Item>
+            else:
+                cur_item = [max(min(cur_item[0], list_item[0]), start_point), max(cur_item[1], list_item[1])]
+        new_age_list.append(cur_item)
+        return new_age_list
+
+    @classmethod
+    def _age_list_set_start(cls, age_list: List[list], start_point: int) -> List[list]:
+        new_age_list = list()
+        for list_item in age_list:
+            # <New Start Point> --- <Begin> --- <End>
+            if start_point <= list_item[0]:
+                new_age_list.append(list_item)
+            # <Begin> --- <End> --- <New Start Point>
+            elif list_item[1] < start_point:
+                pass
+            # <Begin> --- <New Start Point> --- <End>
+            else:
+                new_age_list.append([start_point, list_item[1]])
+        return new_age_list
+
+    @classmethod
+    def _age_list_point_in(cls, age_list: List[list], point: int) -> bool:
+        in_flag = any([list_item[0] <= point <= list_item[1] for list_item in age_list])
+        return in_flag
+
+    @classmethod
     def get_storer_register_dict(cls, storer_list: List[Storer]) -> Dict[str, Storer]:
         register_dict = dict()
         for storer in storer_list:

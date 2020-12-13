@@ -12,6 +12,7 @@ header_header = {'topic_id': 'test', 'table_id': '...aged_data', 'aged': 'True',
 
 with open(os.path.join('.', 'input', 'person_simple', '000002.json'), encoding='utf-8') as fp:
     body_data = json.load(fp)
+
 body_header = {'topic_id': 'test', 'table_id': '...aged_data', 'age': '2', 'start_seq': '20201113222500000000',
                'data_store': 'body', 'data_encode': 'flat'}
 
@@ -21,7 +22,7 @@ def pusher():
         os.remove(os.path.join('.', 'sqlite3', 'pusher.db'))
     conn = sqlite3.connect(os.path.join('.', 'sqlite3', 'pusher.db'))
     adaptor = SQLiteAdaptor(connection=conn)
-    adaptor.create_table(SQLiteAdaptor._ctrl_table_id, dict(), SQLiteAdaptor._ctrl_table)
+    adaptor.create_table(SQLiteAdaptor._ctrl_table_id, '', dict(), SQLiteAdaptor._ctrl_table)
     storer = BasicStorer()
     adaptor_dict = {'.': adaptor}
     pusher = Pusher(storers=[storer], adaptor_dict=adaptor_dict)

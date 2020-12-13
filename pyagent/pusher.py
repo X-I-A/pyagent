@@ -1,3 +1,4 @@
+import json
 from typing import Dict, List, Union, Tuple
 from xialib.adaptor import Adaptor
 from xialib.storer import Storer
@@ -8,7 +9,7 @@ __all__ = ['Pusher']
 
 class Pusher(Agent):
     """Pusher Agent
-    Push received data without flow control. Receive header = drop and create new table
+    Push received data. Receive header = drop and create new table
 
     Attributes:
         sources (:obj:`list` of `Subscriber`): Data sources
@@ -19,31 +20,122 @@ class Pusher(Agent):
                  adaptor_dict: Dict[str, Adaptor],
                  **kwargs):
         super().__init__(storers=storers, adaptor_dict=adaptor_dict, **kwargs)
-        self.field_data_dict = dict()
 
-    def push_data(self, header: dict, data: Union[List[dict], str, bytes], **kwargs) -> bool:
+    def _get_id_from_header(self, header: dict):
+        source_id = header.get('source_id', header['table_id'])
         topic_id = header['topic_id']
         table_id = header['table_id']
-        self.log_context['context'] = '-'.join([topic_id, table_id])
-
         target_id = '.'.join(table_id.split('.')[:2])
+        return source_id, topic_id, table_id, target_id
+
+    def _get_adaptor_from_target(self, target_id: str):
         active_adaptor = self.adaptor_dict.get(target_id, None)
         assert isinstance(active_adaptor, Adaptor)
         if active_adaptor is None:
             self.logger.error("No adaptor for target id {}".format(target_id), extra=self.log_context)
             raise ValueError("AGT-000005")
 
-        data_type, data_header, data_body = self._parse_data(header, data)
-        if data_type == 'header':
-            active_adaptor.drop_table(table_id)
-            self.field_data_dict[table_id] = data_body
-            return active_adaptor.create_table(table_id, header.get('meta-data', dict()), data_body)
+    def _push_header(self, header: dict, header_data: List[dict]) -> bool:
+        source_id, topic_id, table_id, target_id = self._get_id_from_header(header)
+        self.log_context['context'] = '-'.join([topic_id, table_id])
+        active_adaptor = self._get_adaptor_from_target(target_id)
+        ctrl_info = active_adaptor.get_ctrl_info(source_id)
+        old_fields = ctrl_info.get('FIELD_LIST', None)
+        new_fields = [{key: value for key, value in line.items() if not key.startswith('_')} for line in header_data]
+
+        # Case 1: New Table or New History
+        if old_fields is None or ctrl_info.get('START_SEQ', None) != header['start_seq']:
+            active_adaptor.drop_table(source_id)
+            return active_adaptor.create_table(source_id, header['start_seq'],
+                                               header.get('meta-data', dict()), header_data, False, table_id)
+        # Case 2: Flexible Table Structure
+        elif old_fields == active_adaptor.FLEXIBLE_FIELDS:
+            return True
+        # Case 3: Try to adapter fields
         else:
-            field_data = self.field_data_dict.get(table_id, None)
-            if field_data is None:
-                line = active_adaptor.get_ctrl_info(table_id)
-                if not line.get('FIELD_LIST', None):
-                    self.logger.warning("Field list empty or not found {}".format(table_id), extra=self.log_context)
+            for new_field in new_fields:
+                new_field_name = new_field['field_name']
+                old_field = [field for field in old_fields if field['field_name'] == new_field_name]
+                old_field = old_field[0] if len(old_field) > 0 else None
+                # Case 3.1: Impossible to adapter fields
+                if old_field is None or old_field['key_flag'] != new_field['key_flag']:
+                    active_adaptor.drop_table(source_id)
+                    return active_adaptor.create_table(source_id, header['start_seq'],
+                                                       header.get('meta-data', dict()), header_data, False, table_id)
+                # Case 3.2: Field Type changes
+                elif old_field['type_chain'] != new_field['type_chain']:
+                    if not active_adaptor.alter_column(table_id, new_field):
+                        active_adaptor.drop_table(source_id)
+                        return active_adaptor.create_table(source_id, header['start_seq'],
+                                                           header.get('meta-data', dict()), header_data,
+                                                           False, table_id)
+            return True
+
+    def _raw_push_data(self, header: dict, body_data: List[dict]):
+        source_id, topic_id, table_id, target_id = self._get_id_from_header(header)
+        self.log_context['context'] = '-'.join([topic_id, table_id])
+        active_adaptor = self._get_adaptor_from_target(target_id)
+        field_data = header['field_list']
+        return active_adaptor.upsert_data(table_id, field_data, body_data)
+
+    def _std_push_data(self, header: dict, body_data: List[dict]):
+        source_id, topic_id, table_id, target_id = self._get_id_from_header(header)
+        self.log_context['context'] = '-'.join([topic_id, table_id])
+        active_adaptor = self._get_adaptor_from_target(target_id)
+        ctrl_info = active_adaptor.get_ctrl_info(source_id)
+        field_data = ctrl_info.get('FIELD_LIST', None)
+        return active_adaptor.upsert_data(table_id, field_data, body_data)
+
+    def _age_push_data(self, header: dict, body_data: List[dict]):
+        source_id, topic_id, table_id, target_id = self._get_id_from_header(header)
+        self.log_context['context'] = '-'.join([topic_id, table_id])
+        active_adaptor = self._get_adaptor_from_target(target_id)
+        ctrl_info = active_adaptor.get_ctrl_info(source_id)
+        field_data = ctrl_info.get('FIELD_LIST', None)
+        log_table_id = ctrl_info.get('LOG_TABLE_INFO', None)
+        if log_table_id is None:
+            self.logger.error("Log Table not found", extra=self.log_context)
+            return False
+
+        data_start_age = header['age']
+        data_end_age = header.get('end age', data_start_age)
+        log_info = active_adaptor.get_log_info(source_id)
+        loaded_log = [line for line in log_info if line['LOADED_FLAG'] == 'X']
+        loaded_age = max([line['END_AGE'] for line in loaded_log]) if loaded_log else 2
+        todo_list = [line for line in log_info if line['LOADED_FLAG'] != 'X']
+
+        if data_end_age > loaded_age:
+            age_list = list()
+            for todo_item in todo_list:
+                age_list = self._age_list_add_item(age_list, [todo_item['START_AGE'], todo_item['END_AGE']])
+
+            todo_data = [line for line in body_data if not self._age_list_point_in(age_list, line['_AGE'])]
+            if not active_adaptor.insert_raw_data(log_table_id, field_data, todo_data):
+                self.logger.error("Log Table Insert Error", extra=self.log_context)
+                return False
+            log_data = {'SOURCE_ID': source_id, 'START_AGE': data_start_age, 'END_AGE': data_end_age, 'LOADED_FLAG': ''}
+            if not active_adaptor.upsert_data(active_adaptor._ctrl_log_id, active_adaptor._ctrl_log_table, [log_data]):
+                self.logger.error("Log Control Table Insert Error", extra=self.log_context)
+                return False
+
+            age_list = self._age_list_add_item(age_list, [data_start_age, data_end_age])
+            if age_list[0][0] <= loaded_age + 1 and ( data_start_age <= loaded_age + 1 or age_list[0][1] % 8 == 0):
+                if not active_adaptor.load_log_data(table_id, age_list[0][0], age_list[0][1]):
+                    self.logger.error("Load log table error", extra=self.log_context)
                     return False
-                field_data = line['FIELD_LIST']
-            return active_adaptor.upsert_data(table_id, field_data, data_body, True)
+            return True
+
+    def push_data(self, header: dict, data: Union[List[dict], str, bytes], **kwargs) -> bool:
+        data_type, data_header, data_body = self._parse_data(header, data)
+        # Case 1: Header data
+        if data_type == 'header':
+            return self._push_header(data_header, data_body)
+        # Case 2.1: Already Prepared data, raw insert
+        elif header.get('raw_insert', False) and 'field_list' in header:
+            return self._raw_push_data(data_header, data_body)
+        # Case 2.2: Age insert data
+        elif 'age' in header:
+            return self._age_push_data(data_header, data_body)
+        # Case 2.3: Standar insert
+        else:
+            return self._std_push_data(data_header, data_body)
