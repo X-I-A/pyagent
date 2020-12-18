@@ -94,8 +94,8 @@ class Pusher(Agent):
         field_data = ctrl_info.get('FIELD_LIST', None)
         log_table_id = ctrl_info.get('LOG_TABLE_ID', '')
         if log_table_id == '':
-            self.logger.error("Log Table not found", extra=self.log_context)  # pragma: no cover
-            return False  # pragma: no cover
+            self.logger.warning("No Log Table, using std push", extra=self.log_context)  # pragma: no cover
+            return self._std_push_data(header, body_data)  # pragma: no cover
 
         data_start_age = int(header['age'])
         data_end_age = int(header.get('end age', data_start_age))
