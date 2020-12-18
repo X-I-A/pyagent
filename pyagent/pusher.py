@@ -30,17 +30,17 @@ class Pusher(Agent):
 
     def _get_adaptor_from_target(self, target_id: str):
         active_adaptor = self.adaptor_dict.get(target_id, None)
-        assert isinstance(active_adaptor, Adaptor)
         if active_adaptor is None:
             self.logger.error("No adaptor for target id {}".format(target_id), extra=self.log_context)
             raise ValueError("AGT-000005")
+        return active_adaptor
 
     def _push_header(self, header: dict, header_data: List[dict]) -> bool:
         source_id, topic_id, table_id, target_id = self._get_id_from_header(header)
         self.log_context['context'] = '-'.join([topic_id, table_id])
         active_adaptor = self._get_adaptor_from_target(target_id)
         ctrl_info = active_adaptor.get_ctrl_info(source_id)
-        old_fields = ctrl_info.get('FIELD_LIST', None)
+        old_fields = ctrl_info.get('FIELD_LIST', [])
         new_fields = [{key: value for key, value in line.items() if not key.startswith('_')} for line in header_data]
 
         # Case 1: New Table or New History
@@ -49,8 +49,8 @@ class Pusher(Agent):
             return active_adaptor.create_table(source_id, header['start_seq'],
                                                header.get('meta-data', dict()), header_data, False, table_id)
         # Case 2: Flexible Table Structure
-        elif old_fields == active_adaptor.FLEXIBLE_FIELDS:
-            return True
+        elif old_fields == active_adaptor.FLEXIBLE_FIELDS:  # pragma: no cover
+            return True  # pragma: no cover
         # Case 3: Try to adapter fields
         else:
             for new_field in new_fields:
@@ -64,7 +64,7 @@ class Pusher(Agent):
                                                        header.get('meta-data', dict()), header_data, False, table_id)
                 # Case 3.2: Field Type changes
                 elif old_field['type_chain'] != new_field['type_chain']:
-                    if not active_adaptor.alter_column(table_id, new_field):
+                    if not active_adaptor.alter_column(table_id, old_field, new_field):
                         active_adaptor.drop_table(source_id)
                         return active_adaptor.create_table(source_id, header['start_seq'],
                                                            header.get('meta-data', dict()), header_data,
@@ -92,16 +92,16 @@ class Pusher(Agent):
         active_adaptor = self._get_adaptor_from_target(target_id)
         ctrl_info = active_adaptor.get_ctrl_info(source_id)
         field_data = ctrl_info.get('FIELD_LIST', None)
-        log_table_id = ctrl_info.get('LOG_TABLE_INFO', None)
-        if log_table_id is None:
-            self.logger.error("Log Table not found", extra=self.log_context)
-            return False
+        log_table_id = ctrl_info.get('LOG_TABLE_ID', '')
+        if log_table_id == '':
+            self.logger.error("Log Table not found", extra=self.log_context)  # pragma: no cover
+            return False  # pragma: no cover
 
-        data_start_age = header['age']
-        data_end_age = header.get('end age', data_start_age)
+        data_start_age = int(header['age'])
+        data_end_age = int(header.get('end age', data_start_age))
         log_info = active_adaptor.get_log_info(source_id)
         loaded_log = [line for line in log_info if line['LOADED_FLAG'] == 'X']
-        loaded_age = max([line['END_AGE'] for line in loaded_log]) if loaded_log else 2
+        loaded_age = max([line['END_AGE'] for line in loaded_log]) if loaded_log else 1
         todo_list = [line for line in log_info if line['LOADED_FLAG'] != 'X']
 
         if data_end_age > loaded_age:
@@ -111,18 +111,19 @@ class Pusher(Agent):
 
             todo_data = [line for line in body_data if not self._age_list_point_in(age_list, line['_AGE'])]
             if not active_adaptor.insert_raw_data(log_table_id, field_data, todo_data):
-                self.logger.error("Log Table Insert Error", extra=self.log_context)
-                return False
+                self.logger.error("Log Table Insert Error", extra=self.log_context)  # pragma: no cover
+                return False  # pragma: no cover
             log_data = {'SOURCE_ID': source_id, 'START_AGE': data_start_age, 'END_AGE': data_end_age, 'LOADED_FLAG': ''}
             if not active_adaptor.upsert_data(active_adaptor._ctrl_log_id, active_adaptor._ctrl_log_table, [log_data]):
-                self.logger.error("Log Control Table Insert Error", extra=self.log_context)
-                return False
+                self.logger.error("Log Control Table Insert Error", extra=self.log_context)  # pragma: no cover
+                return False  # pragma: no cover
 
             age_list = self._age_list_add_item(age_list, [data_start_age, data_end_age])
-            if age_list[0][0] <= loaded_age + 1 and ( data_start_age <= loaded_age + 1 or age_list[0][1] % 8 == 0):
+            age_list = self._age_list_set_start(age_list, loaded_age + 1)
+            if (len(age_list)) > 0 and (age_list[0][0] <= loaded_age + 1 <= age_list[0][1]):
                 if not active_adaptor.load_log_data(table_id, age_list[0][0], age_list[0][1]):
-                    self.logger.error("Load log table error", extra=self.log_context)
-                    return False
+                    self.logger.error("Load log table error", extra=self.log_context)  # pragma: no cover
+                    return False  # pragma: no cover
             return True
 
     def push_data(self, header: dict, data: Union[List[dict], str, bytes], **kwargs) -> bool:

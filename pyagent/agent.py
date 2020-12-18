@@ -47,8 +47,8 @@ class Agent():
             if not all(isinstance(source, Subscriber) for source in sources):
                 self.logger.error("source should have type of Subscriber", extra=self.log_context)
                 raise TypeError("AGT-000002")
-            else:
-                self.sources = sources
+            else:  # pragma: no cover
+                self.sources = sources  # pragma: no cover
 
     def _parse_data(self, header: dict, data: Union[List[dict], str, bytes]) -> Tuple[str, dict, list]:
         if header['data_store'] != 'body':
@@ -79,8 +79,6 @@ class Agent():
     def _age_list_add_item(cls, age_list: List[list], item: list) -> List[list]:
         new_age_list, cur_item, start_point = list(), item.copy(), None
         for list_item in age_list:
-            if start_point is None:
-                start_point = list_item[0]
             # <List Item> --- <New Item>
             if list_item[1] + 1 < cur_item[0]:
                 new_age_list.append(list_item)
@@ -90,7 +88,7 @@ class Agent():
                 cur_item = list_item.copy()
             # <New Item && List Item>
             else:
-                cur_item = [max(min(cur_item[0], list_item[0]), start_point), max(cur_item[1], list_item[1])]
+                cur_item = [min(cur_item[0], list_item[0]), max(cur_item[1], list_item[1])]
         new_age_list.append(cur_item)
         return new_age_list
 
