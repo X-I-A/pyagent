@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [3.5]
+        python-version: [3.7]
 
     steps:
     - uses: actions/checkout@v2
@@ -30,11 +30,11 @@ jobs:
         flake8 . --count --exit-zero --max-complexity=20 --max-line-length=127 --ignore=F401 --statistics
     - name: Test with pytest
       run: |
-        cd tests && export PYTHONPATH='..' && pytest --cov=../pyinsight --cov-report=xml
+        cd tests && export PYTHONPATH='..' && pytest --cov=../pyagent --cov-report=xml
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v1
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
         file: ./tests/coverage.xml
         flags: unittests
-        name: codecov-pyinsight
+        name: codecov-pyagent
