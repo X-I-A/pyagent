@@ -40,7 +40,7 @@ class Pusher(Agent):
         self.log_context['context'] = '-'.join([topic_id, table_id])
         active_adaptor = self._get_adaptor_from_target(target_id)
         ctrl_info = active_adaptor.get_ctrl_info(source_id)
-        old_fields = ctrl_info.get('FIELD_LIST', [])
+        old_fields = ctrl_info.get('FIELD_LIST', None)
         new_fields = [{key: value for key, value in line.items() if not key.startswith('_')} for line in header_data]
 
         # Case 1: New Table or New History
@@ -98,7 +98,7 @@ class Pusher(Agent):
             return self._std_push_data(header, body_data)  # pragma: no cover
 
         data_start_age = int(header['age'])
-        data_end_age = int(header.get('end age', data_start_age))
+        data_end_age = int(header.get('end_age', data_start_age))
         log_info = active_adaptor.get_log_info(source_id)
         loaded_log = [line for line in log_info if line['LOADED_FLAG'] == 'X']
         loaded_age = max([line['END_AGE'] for line in loaded_log]) if loaded_log else 1
@@ -121,7 +121,7 @@ class Pusher(Agent):
             age_list = self._age_list_add_item(age_list, [data_start_age, data_end_age])
             age_list = self._age_list_set_start(age_list, loaded_age + 1)
             if (len(age_list)) > 0 and (age_list[0][0] <= loaded_age + 1 <= age_list[0][1]):
-                if not active_adaptor.load_log_data(table_id, age_list[0][0], age_list[0][1]):
+                if not active_adaptor.load_log_data(source_id, age_list[0][0], age_list[0][1]):
                     self.logger.error("Load log table error", extra=self.log_context)  # pragma: no cover
                     return False  # pragma: no cover
             return True
