@@ -93,8 +93,8 @@ class Pusher(Agent):
         ctrl_info = active_adaptor.get_ctrl_info(source_id)
         field_data = ctrl_info.get('FIELD_LIST', None)
         log_table_id = ctrl_info.get('LOG_TABLE_ID', '')
-        if log_table_id == '':
-            self.logger.warning("No Log Table, using std push", extra=self.log_context)  # pragma: no cover
+        if log_table_id == table_id:
+            self.logger.info("Table logs itself, using std push", extra=self.log_context)  # pragma: no cover
             return self._std_push_data(header, body_data)  # pragma: no cover
 
         data_start_age = int(header['age'])
