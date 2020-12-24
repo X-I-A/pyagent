@@ -69,7 +69,11 @@ class Pusher(Agent):
                         return active_adaptor.create_table(source_id, header['start_seq'],
                                                            header.get('meta-data', dict()), header_data,
                                                            False, table_id)
-            return True
+                # Case 3.3: Nothing changes => Try to create the table in the case of desyncro with ctrl-info
+                else:
+                    return active_adaptor.create_table(source_id, header['start_seq'],
+                                                       header.get('meta-data', dict()), header_data,
+                                                       False, table_id)
 
     def _raw_push_data(self, header: dict, body_data: List[dict]):
         source_id, topic_id, table_id, target_id = self._get_id_from_header(header)
