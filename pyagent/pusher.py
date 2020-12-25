@@ -39,41 +39,8 @@ class Pusher(Agent):
         source_id, topic_id, table_id, target_id = self._get_id_from_header(header)
         self.log_context['context'] = '-'.join([topic_id, table_id])
         active_adaptor = self._get_adaptor_from_target(target_id)
-        ctrl_info = active_adaptor.get_ctrl_info(source_id)
-        old_fields = ctrl_info.get('FIELD_LIST', None)
-        new_fields = [{key: value for key, value in line.items() if not key.startswith('_')} for line in header_data]
-
-        # Case 1: New Table or New History
-        if old_fields is None or ctrl_info.get('START_SEQ', None) != header['start_seq']:
-            active_adaptor.drop_table(source_id)
-            return active_adaptor.create_table(source_id, header['start_seq'],
-                                               header.get('meta-data', dict()), header_data, False, table_id)
-        # Case 2: Flexible Table Structure
-        elif old_fields == active_adaptor.FLEXIBLE_FIELDS:  # pragma: no cover
-            return True  # pragma: no cover
-        # Case 3: Try to adapter fields
-        else:
-            for new_field in new_fields:
-                new_field_name = new_field['field_name']
-                old_field = [field for field in old_fields if field['field_name'] == new_field_name]
-                old_field = old_field[0] if len(old_field) > 0 else None
-                # Case 3.1: Impossible to adapter fields
-                if old_field is None or old_field['key_flag'] != new_field['key_flag']:
-                    active_adaptor.drop_table(source_id)
-                    return active_adaptor.create_table(source_id, header['start_seq'],
-                                                       header.get('meta-data', dict()), header_data, False, table_id)
-                # Case 3.2: Field Type changes
-                elif old_field['type_chain'] != new_field['type_chain']:
-                    if not active_adaptor.alter_column(table_id, old_field, new_field):
-                        active_adaptor.drop_table(source_id)
-                        return active_adaptor.create_table(source_id, header['start_seq'],
-                                                           header.get('meta-data', dict()), header_data,
-                                                           False, table_id)
-            # Case 3.3: Nothing changes => Try to create the table in the case of desyncro with ctrl-info
-            return active_adaptor.create_table(source_id, header['start_seq'],
-                                               header.get('meta-data', dict()), header_data,
-                                               False, table_id)
-
+        return active_adaptor.create_table(source_id, header['start_seq'],
+                                           header.get('meta-data', dict()), header_data, False, table_id)
 
     def _raw_push_data(self, header: dict, body_data: List[dict]):
         source_id, topic_id, table_id, target_id = self._get_id_from_header(header)
