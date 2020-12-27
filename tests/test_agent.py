@@ -3,8 +3,14 @@ import json
 import gzip
 import base64
 import pytest
-from xialib import BasicStorer
+from xialib import BasicStorer, BasicPublisher
 from pyagent.agent import Agent
+
+def test_messager_setting():
+    messager = BasicPublisher()
+    Agent.set_internal_channel(messager=messager,
+                                 topic_cockpit='cockpit',
+                                 channel=os.path.join('.', 'insight', 'messager'))
 
 def test_age_list():
     age_list = []
@@ -63,4 +69,5 @@ def test_exceptions():
         agt = Agent(storers=[], adaptor_dict={'err': object()})
     with pytest.raises(TypeError):
         agt = Agent(storers=[], adaptor_dict={}, sources=[object()])
-
+    with pytest.raises(TypeError):
+        Agent.set_internal_channel(messager=object())
