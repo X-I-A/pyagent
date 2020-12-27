@@ -10,7 +10,7 @@ def test_messager_setting():
     messager = BasicPublisher()
     Agent.set_internal_channel(messager=messager,
                                  topic_cockpit='cockpit',
-                                 channel=os.path.join('.', 'insight', 'messager'))
+                                 channel=os.path.join('.', 'agent', 'messager'))
 
 def test_age_list():
     age_list = []
