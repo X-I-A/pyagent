@@ -23,7 +23,8 @@ def test_age_push(pusher):
     with open(os.path.join('.', 'input', 'person_simple', 'schema.json'), encoding='utf-8') as fp:
         header_data = json.load(fp)
     header_header = {'topic_id': 'test', 'table_id': '...aged_data', 'aged': 'True', 'data_store': 'body',
-                     'data_encode': 'flat', 'age': '1', 'start_seq': '20201113222500000000'}
+                     'data_encode': 'flat', 'data_spec': 'x-i-a', 'data_format': 'record',
+                     'age': '1', 'start_seq': '20201113222500000000'}
     body_header = {'topic_id': 'test', 'table_id': '...aged_data', 'age': '2', 'start_seq': '20201113222500000000',
                    'data_store': 'body', 'data_encode': 'flat'}
     with open(os.path.join('.', 'input', 'person_simple', '000002.json'), encoding='utf-8') as fp:
@@ -37,7 +38,8 @@ def test_std_push(pusher):
     with open(os.path.join('.', 'input', 'person_simple', 'schema.json'), encoding='utf-8') as fp:
         header_data = json.load(fp)
     header_header = {'topic_id': 'test', 'table_id': '...std_data', 'aged': 'True', 'data_store': 'body',
-                     'data_encode': 'flat', 'age': '1', 'start_seq': '20201113222500000000'}
+                     'data_encode': 'flat', 'data_spec': 'x-i-a',  'data_format': 'record',
+                     'age': '1', 'start_seq': '20201113222500000000'}
     body_header = {'topic_id': 'test', 'table_id': '...std_data', 'start_seq': '20201113222500000000',
                    'data_store': 'body', 'data_encode': 'flat'}
     with open(os.path.join('.', 'input', 'person_simple', '000002.json'), encoding='utf-8') as fp:
@@ -50,7 +52,8 @@ def test_raw_push(pusher):
     with open(os.path.join('.', 'input', 'person_simple', 'schema.json'), encoding='utf-8') as fp:
         header_data = json.load(fp)
     header_header = {'topic_id': 'test', 'table_id': '...raw_data', 'aged': 'True', 'data_store': 'body',
-                     'data_encode': 'flat', 'age': '1', 'start_seq': '20201113222500000000'}
+                     'data_encode': 'flat', 'age': '1', 'data_spec': 'x-i-a',  'data_format': 'record',
+                     'start_seq': '20201113222500000000'}
 
     body_header = {'topic_id': 'test', 'table_id': '...raw_data', 'age': '2', 'start_seq': '20201113222500000000',
                    'data_store': 'body', 'data_encode': 'flat', 'raw_insert': 'True',
@@ -64,7 +67,8 @@ def test_complex_age_push(pusher):
     with open(os.path.join('.', 'input', 'person_simple', 'schema.json'), encoding='utf-8') as fp:
         header_data = json.load(fp)
     header_header = {'topic_id': 'test', 'table_id': '...complex_data', 'aged': 'True', 'data_store': 'body',
-                     'data_encode': 'flat', 'age': '1', 'start_seq': '20201113222500000000'}
+                     'data_encode': 'flat', 'age': '1', 'data_spec': 'x-i-a',  'data_format': 'record',
+                     'start_seq': '20201113222500000000'}
     assert pusher.push_data(header_header, header_data)
 
     age_sample = random.sample(range(2, 1002), 1000)
@@ -72,7 +76,8 @@ def test_complex_age_push(pusher):
         body_data = json.load(fp)
     for age in age_sample:
         body_header = {'topic_id': 'test', 'table_id': '...complex_data', 'age': age, 'start_seq': '20201113222500000000',
-                       'data_store': 'body', 'data_encode': 'flat'}
+                       'data_store': 'body', 'data_spec': 'x-i-a',  'data_format': 'record',
+                       'data_encode': 'flat'}
         cur_data = body_data.pop()
         cur_data['_AGE'] = age
         assert pusher.push_data(body_header, [cur_data])
@@ -81,7 +86,8 @@ def test_change_header(pusher):
     with open(os.path.join('.', 'input', 'person_simple', 'schema.json'), encoding='utf-8') as fp:
         header_data = json.load(fp)
     header_header = {'topic_id': 'test', 'table_id': '...header_data', 'aged': 'True', 'data_store': 'body',
-                     'data_encode': 'flat', 'age': '1', 'start_seq': '20201113222500000000'}
+                     'data_encode': 'flat', 'age': '1', 'data_spec': 'x-i-a',  'data_format': 'record',
+                     'start_seq': '20201113222500000000'}
     assert pusher.push_data(header_header, header_data)
     for header_line in header_data:
         if header_line['field_name'] == 'weight':

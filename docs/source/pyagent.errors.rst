@@ -6,3 +6,4 @@ Error Codes
 * AGT-000003: adaptor should have type of Adaptor
 * AGT-000004: No storer found for the currect store type
 * AGT-000005: No adaptor for target id
+* AGT-000006: Messager should have type of Publisher

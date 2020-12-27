@@ -1,8 +1,11 @@
+import os
 import gzip
 import json
 import base64
 import logging
 from typing import List, Dict, Union, Tuple
+from xialib import BasicPublisher
+from xialib.publisher import Publisher
 from xialib.adaptor import Adaptor
 from xialib.storer import Storer
 from xialib.subscriber import Subscriber
@@ -20,6 +23,14 @@ class Agent():
 
     """
     log_level = logging.WARNING
+
+    messager = BasicPublisher()
+    if not os.path.exists(os.path.join('.', 'agent')):
+        os.mkdir(os.path.join('.', 'agent'))
+    if not os.path.exists(os.path.join('.', 'agent', 'messager')):
+        os.mkdir(os.path.join('.', 'agent', 'messager'))
+    channel = os.path.join(os.path.join('.', 'agent', 'messager'))
+    topic_cockpit = 'cockpit'
 
     def __init__(self,
                  storers: List[Storer],
@@ -49,6 +60,28 @@ class Agent():
                 raise TypeError("AGT-000002")
             else:  # pragma: no cover
                 self.sources = sources  # pragma: no cover
+
+    @classmethod
+    def set_internal_channel(cls, **kwargs):
+        """ Public function
+
+        This function will set the correct internal message channel information
+
+        Warnings:
+            Please do not override this function.
+        """
+        if 'messager' in kwargs:
+            messager = kwargs['messager']
+            if not isinstance(messager, Publisher):
+                logger = logging.getLogger('Agent')
+                logger.error("messager should have type of Publisher", extra={'context': ''})
+                raise TypeError("AGT-000006")
+            else:
+                Agent.messager = messager
+        if 'channel' in kwargs:
+            Agent.channel = kwargs['channel']
+        if 'topic_cockpit' in kwargs:
+            Agent.topic_cockpit = kwargs['topic_cockpit']
 
     def _parse_data(self, header: dict, data: Union[List[dict], str, bytes]) -> Tuple[str, dict, list]:
         if header['data_store'] != 'body':
@@ -119,3 +152,10 @@ class Agent():
             for store_type in storer.store_types:
                 register_dict[store_type] = storer
         return register_dict
+
+    @classmethod
+    def trigger_cockpit(cls, event_name: str, data_header: dict, data_body: List[dict]):
+        data_header['event_name'] = event_name
+        data_header['data_encode'] = 'gzip'
+        return cls.messager.publish(cls.channel, cls.topic_cockpit, data_header,
+                                    gzip.compress(json.dumps(data_body, ensure_ascii=False).encode()))
