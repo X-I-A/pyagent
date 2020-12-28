@@ -154,8 +154,11 @@ class Agent():
         return register_dict
 
     @classmethod
-    def trigger_cockpit(cls, event_name: str, data_header: dict, data_body: List[dict]):
-        data_header['event_name'] = event_name
+    def trigger_cockpit(cls, data_header: dict, data_body: List[dict]):
+        assert 'event_type' in data_header
         data_header['data_encode'] = 'gzip'
-        return cls.messager.publish(cls.channel, cls.topic_cockpit, data_header,
+        resp = cls.messager.publish(cls.channel, cls.topic_cockpit, data_header,
                                     gzip.compress(json.dumps(data_body, ensure_ascii=False).encode()))
+        data_header.pop('event_type', None)
+        data_header.pop('evnet_token', None)
+        return resp

@@ -101,12 +101,14 @@ class Pusher(Agent):
         data_type, data_header, data_body = self._parse_data(header, data)
         # Case 1: Header data
         if data_type == 'header':
-            header_push_result = self._push_header(data_header, data_body)
-            event_header = data_header.copy()
-            event_header['event_status'] = header_push_result
-            self.logger.info("Sending table creation event", extra=self.log_context)
-            self.trigger_cockpit('source_table_init', event_header, data_body)
-            return True if header_push_result else False
+            if self._push_header(data_header, data_body):
+                event_header = data_header.copy()
+                event_header['event_type'] = 'target_table_update'
+                self.logger.info("Sending table creation event", extra=self.log_context)
+                self.trigger_cockpit(event_header, data_body)
+                return True
+            else:  # pragma: no cover
+                return False  # pragma: no cover
         # Case 2.1: Already Prepared data, raw insert
         elif header.get('raw_insert', False) and 'field_list' in header:
             return self._raw_push_data(data_header, data_body)

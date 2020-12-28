@@ -12,4 +12,4 @@ __all__ = \
     pusher.__all__
 
 
-__version__ = "0.0.10"
+__version__ = "0.0.11"
