@@ -11,12 +11,12 @@ def pusher():
     if os.path.exists(os.path.join('.', 'sqlite3', 'pusher.db')):
         os.remove(os.path.join('.', 'sqlite3', 'pusher.db'))
     conn = sqlite3.connect(os.path.join('.', 'sqlite3', 'pusher.db'))
-    adaptor = SQLiteAdaptor(connection=conn)
-    adaptor.create_table(SQLiteAdaptor._ctrl_table_id, '', dict(), SQLiteAdaptor._ctrl_table)
-    adaptor.create_table(SQLiteAdaptor._ctrl_log_id, '', dict(), SQLiteAdaptor._ctrl_log_table)
-    storer = BasicStorer()
-    adaptor_dict = {'.': adaptor}
-    pusher = Pusher(storers=[storer], adaptor_dict=adaptor_dict)
+    adaptor = SQLiteAdaptor(db=conn)
+    adaptor.drop_table(SQLiteAdaptor._ctrl_table_id)
+    adaptor.drop_table(SQLiteAdaptor._ctrl_log_id)
+    adaptor.create_table(SQLiteAdaptor._ctrl_table_id, '', dict(), SQLiteAdaptor._ctrl_table, False, "")
+    adaptor.create_table(SQLiteAdaptor._ctrl_log_id, '', dict(), SQLiteAdaptor._ctrl_log_table, False, "")
+    pusher = Pusher(adaptor=adaptor)
     yield pusher
 
 def test_age_push(pusher):
@@ -106,6 +106,6 @@ def test_change_header(pusher):
             header_line['key_flag'] = False
     assert pusher.push_data(header_header, header_data)
 
-def test_exceptions(pusher):
-    with pytest.raises(ValueError):
-        pusher._get_adaptor_from_target('dummy...table')
+def test_exceptions():
+    conn = sqlite3.connect(os.path.join('.', 'sqlite3', 'pusher.db'))
+    push = Pusher(adaptor={"dummy": SQLiteAdaptor(db=conn)})

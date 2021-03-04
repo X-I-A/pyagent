@@ -3,14 +3,9 @@ import json
 import gzip
 import base64
 import pytest
-from xialib import BasicStorer, BasicPublisher
+from xialib import BasicStorer
 from pyagent.agent import Agent
 
-def test_messager_setting():
-    messager = BasicPublisher()
-    Agent.set_internal_channel(messager=messager,
-                                 topic_cockpit='cockpit',
-                                 channel=os.path.join('.', 'agent', 'messager'))
 
 def test_age_list():
     age_list = []
@@ -36,7 +31,7 @@ def test_age_list():
     assert age_list == [[1, 10]]
 
 def test_parse_data():
-    agt = Agent(storers=[BasicStorer()], adaptor_dict={})
+    agt = Agent()
     # The same code has already been well tested in pyinsight Dispatcher Module
     with open(os.path.join('.', 'input', 'person_simple', 'schema.json'), encoding='utf-8') as fp:
         header_data = json.load(fp)
@@ -64,10 +59,8 @@ def test_parse_data():
 
 def test_exceptions():
     with pytest.raises(TypeError):
-        agt = Agent(storers=[object()], adaptor_dict={})
+        agt = Agent(storer=object())
     with pytest.raises(TypeError):
-        agt = Agent(storers=[], adaptor_dict={'err': object()})
-    with pytest.raises(TypeError):
-        agt = Agent(storers=[], adaptor_dict={}, sources=[object()])
-    with pytest.raises(TypeError):
-        Agent.set_internal_channel(messager=object())
+        agt = Agent(adaptor={'err': object()})
+    agt = Agent(storer=BasicStorer())
+    agt = Agent(storer={"dummy": BasicStorer()})
