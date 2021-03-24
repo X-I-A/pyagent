@@ -207,8 +207,8 @@ class Pusher(Agent):
         """
         return self.controller.get_update_tasks()
 
-    def load_data(self, log_table_id, table_id, field_list, start_key, end_key):
+    def load_data(self, log_table_id, table_id, field_list, meta_data, start_key, end_key):
         """Load log data into final table
         """
-        return self.adaptor.load_log_data(log_table_id, table_id, field_data=field_list,
+        return self.adaptor.load_log_data(log_table_id, table_id, field_data=field_list, meta_data=meta_data,
                                           start_age=start_key, end_age=end_key)
